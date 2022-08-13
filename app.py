@@ -2,12 +2,14 @@
 # Imports
 #----------------------------------------------------------------------------#
 
+import enum
 import json
 import dateutil.parser
 import babel
 from flask import Flask, render_template, request, Response, flash, redirect, url_for
 from flask_moment import Moment
 from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
 import logging
 from logging import Formatter, FileHandler
 from flask_wtf import Form
@@ -19,13 +21,35 @@ from forms import *
 app = Flask(__name__)
 moment = Moment(app)
 app.config.from_object('config')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
+migrate = Migrate(app, db)
 
-# TODO: connect to a local postgresql database
+# TODO: connect to a local postgresql database OK----------------------------#
 
 #----------------------------------------------------------------------------#
 # Models.
 #----------------------------------------------------------------------------#
+class GenreEnum(enum.Enum):
+    Alternative = 'Alternative'
+    Blues = 'Blues'
+    Classical = 'Classical'
+    Country = 'Country'
+    Electronic = 'Electronic'
+    Folk = 'Folk'
+    Funk = 'Funk'
+    Hip_Hop = 'Hip-Hop'
+    Heavy_Metal = 'Heavy Metal'
+    Instrumental = 'Instrumental'
+    Jazz = 'Jazz'
+    Musical_Theatre = 'Musical Theatre'
+    Pop = 'Pop'
+    Punk = 'Punk'
+    RNB = 'R&B'
+    Reggae = 'Reggae'
+    Rock_n_Roll = 'Rock n Roll'
+    Soul = 'Soul'
+    Other = 'Other'
 
 class Venue(db.Model):
     __tablename__ = 'Venue'
@@ -37,9 +61,18 @@ class Venue(db.Model):
     address = db.Column(db.String(120))
     phone = db.Column(db.String(120))
     image_link = db.Column(db.String(500))
+    genres = db.Column(
+        db.Enum(GenreEnum), 
+        default=GenreEnum.Alternative,
+        nullable=False
+    )
     facebook_link = db.Column(db.String(120))
+    shows = db.relationship('Show', backref='venue', lazy=True)
 
-    # TODO: implement any missing fields, as a database migration using Flask-Migrate
+    def __repr__(self) -> str:
+       return f'Venue {self.id} {self.name}'
+
+    # TODO: implement any missing fields, as a database migration using Flask-Migrate OK--#
 
 class Artist(db.Model):
     __tablename__ = 'Artist'
@@ -52,11 +85,23 @@ class Artist(db.Model):
     genres = db.Column(db.String(120))
     image_link = db.Column(db.String(500))
     facebook_link = db.Column(db.String(120))
+    shows = db.relationship('Show', backref='artist', lazy=True)
 
-    # TODO: implement any missing fields, as a database migration using Flask-Migrate
+    def __repr__(self) -> str:
+       return f'{self.id} {self.name}'
 
-# TODO Implement Show and Artist models, and complete all model relationships and properties, as a database migration.
+    # TODO: implement any missing fields, as a database migration using Flask-Migrate OK--#
 
+# TODO: Implement Show and Artist models, and complete all model relationships and properties, as a database migration OK--#
+class Show(db.Model):
+    __tablename__= 'Show'
+    id = db.Column(db.Integer, primary_key=True)
+    venue_id = db.Column(db.Integer, db.ForeignKey('Venue.id'), nullable=False)
+    artist_id = db.Column(db.Integer, db.ForeignKey('Artist.id'), nullable=False)
+    start_time = db.Column(db.DateTime)
+
+    def __repr__(self) -> str:
+       return f'{self.id}'    
 #----------------------------------------------------------------------------#
 # Filters.
 #----------------------------------------------------------------------------#
@@ -87,6 +132,7 @@ def index():
 def venues():
   # TODO: replace with real venues data.
   #       num_upcoming_shows should be aggregated based on number of upcoming shows per venue.
+  Form = SearchForm()
   data=[{
     "city": "San Francisco",
     "state": "CA",
@@ -108,13 +154,17 @@ def venues():
       "num_upcoming_shows": 0,
     }]
   }]
-  return render_template('pages/venues.html', areas=data);
+  return render_template('pages/venues.html', areas=data, form=Form);
 
 @app.route('/venues/search', methods=['POST'])
 def search_venues():
   # TODO: implement search on artists with partial string search. Ensure it is case-insensitive.
   # seach for Hop should return "The Musical Hop".
   # search for "Music" should return "The Musical Hop" and "Park Square Live Music & Coffee"
+  Form = SearchForm()
+  venues = Venue.query
+  venues = venues.filter(Venue.name.like('%' + Form.search.data + '%'))
+  print('ok',venues)
   response={
     "count": 1,
     "data": [{

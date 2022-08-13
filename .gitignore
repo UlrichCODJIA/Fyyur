@@ -1,3 +1,5 @@
 venv
 node_modules
+migrations
 package-lock.json
+migrations/script.py.mako

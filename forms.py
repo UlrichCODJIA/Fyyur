@@ -1,12 +1,12 @@
 from datetime import datetime
-from flask_wtf import Form
+from flask_wtf import Form 
 from wtforms import StringField, SelectField, SelectMultipleField, DateTimeField, BooleanField
-from wtforms.validators import DataRequired, AnyOf, URL
+from wtforms.validators import DataRequired, AnyOf, URL, Regexp
 
 class ShowForm(Form):
     artist_id = StringField(
         'artist_id'
-    )
+    )   
     venue_id = StringField(
         'venue_id'
     )
@@ -89,7 +89,7 @@ class VenueForm(Form):
         'image_link'
     )
     genres = SelectMultipleField(
-        # TODO implement enum restriction
+        # TODO: implement enum restriction OK----------------------------#
         'genres', validators=[DataRequired()],
         choices=[
             ('Alternative', 'Alternative'),
@@ -192,8 +192,8 @@ class ArtistForm(Form):
         ]
     )
     phone = StringField(
-        # TODO implement validation logic for state
-        'phone'
+        # TODO: implement validation logic for state OK----------------------------#
+        'phone', validators=[Regexp('^\d{10}$', message="Phone number must be entered in the format: 'NXX-NXX-XXXX'. Up to 15 digits allowed."),]
     )
     image_link = StringField(
         'image_link'
@@ -236,4 +236,7 @@ class ArtistForm(Form):
     seeking_description = StringField(
             'seeking_description'
      )
+
+class SearchForm(Form):
+    search = StringField('search', [DataRequired()])
 
