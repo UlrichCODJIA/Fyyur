@@ -232,6 +232,11 @@ def create_venue_submission():
 
 @app.route('/venues/<venue_id>', methods=['DELETE'])
 def delete_venue(venue_id):
+  # TODO: Complete this endpoint for taking a venue_id, and using
+  # SQLAlchemy ORM to delete a record. Handle cases where the session commit could fail.
+
+  # BONUS CHALLENGE: Implement a button to delete a Venue on a Venue Page, have it so that
+  # clicking that button delete it from the db then redirect the user to the homepage  
   error = False
   try:
     Venue.query.filter_by(id=venue_id).delete()
@@ -244,16 +249,11 @@ def delete_venue(venue_id):
     db.session.close()
   if not error:
     flash('Venue ' + venue_id + ' was successfully deleted!')
-    return redirect(url_for('home'))
+    return redirect(url_for('index'))
   
   else:
     flash('An error occurred. Venue ' + venue_id + ' could not be deleted.')
     abort(500)
-  # TODO: Complete this endpoint for taking a venue_id, and using
-  # SQLAlchemy ORM to delete a record. Handle cases where the session commit could fail.
-
-  # BONUS CHALLENGE: Implement a button to delete a Venue on a Venue Page, have it so that
-  # clicking that button delete it from the db then redirect the user to the homepage
 
 #  Artists
 #  ----------------------------------------------------------------
@@ -565,6 +565,8 @@ def create_shows():
 
 @app.route('/shows/create', methods=['POST'])
 def create_show_submission():
+  # called to create new shows in the db, upon submitting new show listing form
+  # TODO: insert form data as a new Show record in the db, instead  
   error = False
   form = ShowForm()
   try:
@@ -591,17 +593,17 @@ def create_show_submission():
   
   else:
     flash('An error occurred. Show could not be listed.')
-    abort(500)  
-  # called to create new shows in the db, upon submitting new show listing form
-  # TODO: insert form data as a new Show record in the db, instead
+    abort(500)
 
 @app.errorhandler(404)
 def not_found_error(error):
-    return render_template('errors/404.html'), 404
+    form = SearchForm()
+    return render_template('errors/404.html', form=form), 404
 
 @app.errorhandler(500)
 def server_error(error):
-    return render_template('errors/500.html'), 500
+    form = SearchForm()
+    return render_template('errors/500.html', form=form), 500
 
 
 if not app.debug:

@@ -209,3 +209,15 @@ h2.monospace {
 .subtitle {
   opacity: 0.5;
 }
+li button {
+  -webkit-appearance: none;
+  border: none;
+  outline: none;
+  color: red;
+  float: right;
+  cursor: pointer;
+  font-size: 15px;
+  background-color: transparent;
+  margin-left: 20px;
+  margin-bottom: 15px;
+}
