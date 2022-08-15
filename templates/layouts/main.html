@@ -57,7 +57,7 @@
                 (request.endpoint == 'search_venues') or
                 (request.endpoint == 'show_venue') %}
               <form class="search" method="post" action="/venues/search">
-                {{ form.search(class_ = 'form-control', type = 'search', name = 'search_term', placeholder='Find a venue', aria-label = 'Search')}}
+                {{ form.search_term(class_ = 'form-control', type = 'search', placeholder='Find a venue')}}
               </form>
               {% endif %}
               {% if (request.endpoint == 'artists') or
@@ -113,6 +113,7 @@
   <script>window.jQuery || document.write('<script type="text/javascript" src="/static/js/libs/jquery-1.11.1.min.js"><\/script>')</script>
   <script type="text/javascript" src="/static/js/libs/bootstrap-3.1.1.min.js" defer></script>
   <script type="text/javascript" src="/static/js/plugins.js" defer></script>
+  {% block js %}{% endblock js%}
 
 </body>
 </html>
