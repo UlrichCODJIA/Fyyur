@@ -2,19 +2,15 @@
 # Imports
 #----------------------------------------------------------------------------#
 
-import enum
-import json
-from operator import and_
 import sys
 import dateutil.parser
 import babel
-from flask import Flask, render_template, request, Response, flash, redirect, url_for, jsonify, abort
+from flask import Flask, render_template, request, flash, redirect, url_for, abort
 from flask_moment import Moment
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 import logging
 from logging import Formatter, FileHandler
-from flask_wtf import Form
 from forms import *
 #----------------------------------------------------------------------------#
 # App Config.
@@ -50,13 +46,35 @@ def format_datetime(value, format='medium'):
 
 app.jinja_env.filters['datetime'] = format_datetime
 
+def time_in_range(start, end, current):
+  return start <= current <= end
+
 #----------------------------------------------------------------------------#
 # Controllers.
 #----------------------------------------------------------------------------#
 
 @app.route('/')
 def index():
-  return render_template('pages/home.html')
+  error = False
+  try:
+    latest_objects = {
+      "last_venues" : Venue.query.order_by('id').all()[-10:],
+      "last_venues_count": Venue.query.order_by('id').count(),
+      "last_artists" : Artist.query.order_by('id').all()[-10:],
+      "last_artists_count" : Artist.query.order_by('id').count(),
+    }
+  
+  except Exception as e:
+    error = True
+    print(e)
+  finally:
+    db.session.close()    
+
+  if not error:
+    return render_template('pages/home.html', latest_objects=latest_objects)
+  
+  else:
+    abort(500)
 
 
 #  Venues
@@ -119,7 +137,7 @@ def search_venues():
         "id": venue.id,
         "name": venue.name,
         "num_upcoming_shows": Show.query.filter(
-          db.and_(Show.start_time > datetime.now(), Show.venue_id == venue.id)
+          db.and_(Show.start_time > datetime.datetime.now(), Show.venue_id == venue.id)
         ).count()
       } for venue in venues] 
     }
@@ -145,7 +163,6 @@ def show_venue(venue_id):
 
   try:
     venue=Venue.query.get(venue_id)
-    print(Show.query.get(1).start_time)
 
     venue={
       "id": venue.id,
@@ -161,13 +178,13 @@ def show_venue(venue_id):
       "seeking_description": venue.seeking_description,
       "image_link": venue.image_link,
       "past_shows": Show.query.filter(
-          db.and_(Show.start_time <= datetime.now(), Show.venue_id == venue_id)), 
+          db.and_(Show.start_time <= datetime.datetime.now(), Show.venue_id == venue_id)), 
       "upcoming_shows": Show.query.filter(
-          db.and_(Show.start_time > datetime.now(), Show.venue_id == venue_id)),
+          db.and_(Show.start_time > datetime.datetime.now(), Show.venue_id == venue_id)),
       "past_shows_count": Show.query.filter(
-          db.and_(Show.start_time <= datetime.now(), Show.venue_id == venue_id)).count(),
+          db.and_(Show.start_time <= datetime.datetime.now(), Show.venue_id == venue_id)).count(),
       "upcoming_shows_count": Show.query.filter(
-          db.and_(Show.start_time > datetime.now(), Show.venue_id == venue_id)).count(),
+          db.and_(Show.start_time > datetime.datetime.now(), Show.venue_id == venue_id)).count(),
     }
 
   except Exception as e:
@@ -301,7 +318,7 @@ def search_artists():
         "id": artist.id,
         "name": artist.name,
         "num_upcoming_shows": Show.query.filter(
-          db.and_(Show.start_time <= datetime.now(), Show.artist_id == artist.id)
+          db.and_(Show.start_time <= datetime.datetime.now(), Show.artist_id == artist.id)
         ).count()
       } for artist in artists] 
     }
@@ -340,14 +357,18 @@ def show_artist(artist_id):
       "seeking_venue": artist.seeking_venue,
       "seeking_description": artist.seeking_description,
       "image_link": artist.image_link,
+      "available_from": artist.available_from.strftime("%H:%M"),
+      "available_to": artist.available_to.strftime("%H:%M"),
+      "albums": Album.query.filter(Album.artist_id == artist_id).order_by(Album.id),
+      "albums_count": Album.query.filter(Album.artist_id == artist_id).count(),
       "past_shows": Show.query.filter(
-          db.and_(Show.start_time <= datetime.now(), Show.artist_id == artist_id)), 
+          db.and_(Show.start_time <= datetime.datetime.now(), Show.artist_id == artist_id)), 
       "upcoming_shows": Show.query.filter(
-          db.and_(Show.start_time > datetime.now(), Show.artist_id == artist_id)),
+          db.and_(Show.start_time > datetime.datetime.now(), Show.artist_id == artist_id)),
       "past_shows_count": Show.query.filter(
-          db.and_(Show.start_time <= datetime.now(), Show.artist_id == artist_id)).count(),
+          db.and_(Show.start_time <= datetime.datetime.now(), Show.artist_id == artist_id)).count(),
       "upcoming_shows_count": Show.query.filter(
-          db.and_(Show.start_time > datetime.now(), Show.artist_id == artist_id)).count(),
+          db.and_(Show.start_time > datetime.datetime.now(), Show.artist_id == artist_id)).count(),
     }
 
   except Exception as e:
@@ -405,6 +426,8 @@ def edit_artist_submission(artist_id):
     artist.website = form.website_link.data
     artist.seeking_venue = form.seeking_venue.data
     artist.seeking_description = form.seeking_description.data
+    artist.available_from = form.available_from.data
+    artist.available_to = form.available_to.data
     db.session.commit()
 
   except Exception as e:
@@ -475,6 +498,56 @@ def edit_venue_submission(venue_id):
   else:
     abort(500)
 
+@app.route('/artists/<int:artist_id>/albums/<int:album_id>/edit', methods=['GET'])
+def edit_album(artist_id, album_id): 
+  error = False
+  form = AlbumForm()
+
+  try:
+    album=Album.query.filter(Album.artist_id == artist_id).first()
+    artist_id = artist_id
+
+  except Exception as e:
+    error = True
+    print(e)
+  finally:
+    db.session.close()     
+
+  if not error:
+    return render_template('forms/edit_album.html', form=form, album=album, artist_id=artist_id)
+  
+  else:
+    abort(500)
+
+@app.route('/artists/<int:artist_id>/albums/<int:album_id>/edit', methods=['POST'])
+def edit_album_submission(artist_id, album_id):
+  error = False
+  form = AlbumForm()
+  try:
+
+    album=Album.query.filter(Album.artist_id == artist_id).first()
+    print(album)
+
+    album.title = form.title.data
+    album.genres = form.genres.data
+    album.year = form.year.data
+    album.image_link = form.image_link.data
+    print(form.title.data, form.genres.data, form.year.data, form.image_link.data)
+    db.session.commit()
+
+  except Exception as e:
+    print(e)
+    error = True
+    db.session.rollback()
+  finally:
+    db.session.close()
+
+  if not error:
+    return redirect(url_for('show_artist', artist_id=artist_id))
+  
+  else:
+    abort(500)    
+
 #  Create Artist
 #  ----------------------------------------------------------------
 
@@ -504,6 +577,8 @@ def create_artist_submission():
       website = form.website_link.data,
       seeking_venue = form.seeking_venue.data,
       seeking_description = form.seeking_description.data,
+      available_from = form.available_from.data,
+      available_to = form.available_to.data,
     )
     db.session.add(artist)
     db.session.commit()
@@ -524,6 +599,77 @@ def create_artist_submission():
     flash('An error occurred. Artist ' + request.form['name'] + ' could not be listed.')
     abort(500)
 
+
+# Albums
+#  ----------------------------------------------------------------
+
+@app.route('/artists/<int:artist_id>/albums/create', methods=['GET'])
+def create_album_form(artist_id):
+  form = AlbumForm()
+  return render_template('forms/new_album.html', form=form)
+
+@app.route('/artists/<int:artist_id>/albums/create', methods=['POST'])
+def create_album_submission(artist_id):
+  error = False
+  form = AlbumForm()
+  try:
+
+    album = Album(
+      title = form.title.data,
+      year = form.year.data,
+      genres = form.genres.data,      
+      image_link = form.image_link.data,
+      artist_id = artist_id,
+    )
+    db.session.add(album)
+    db.session.commit()
+  
+  except:
+    error = True
+    db.session.rollback()
+    print(sys.exc_info())
+  
+  finally:
+    db.session.close()
+  
+  if not error:
+    flash('Album ' + request.form['title'] + ' was successfully listed!')
+    return redirect(url_for('show_artist', artist_id=artist_id))
+  
+  else:
+    flash('An error occurred. Album ' + request.form['title'] + ' could not be listed.')
+    abort(500)
+
+
+@app.route('/artists/<int:artist_id>/albums/<int:album_id>')
+def show_album(artist_id, album_id):
+  error = False
+  Form = SearchForm()
+
+  try:
+    album=Album.query.filter(Album.artist_id == artist_id).first()
+
+    album={
+      "id": album.id,
+      "title": album.title,
+      "genres": album.genres,
+      "year": album.year,
+      "image_link": album.image_link,
+      "artist": Artist.query.get(artist_id).name,
+      "artist_id": artist_id,
+    }
+
+  except Exception as e:
+    error = True
+    print(e)
+  finally:
+    db.session.close()    
+
+  if not error:
+    return render_template('pages/show_album.html', album=album)
+  
+  else:
+    abort(500)
 
 #  Shows
 #  ----------------------------------------------------------------
@@ -570,30 +716,43 @@ def create_show_submission():
   error = False
   form = ShowForm()
   try:
+    if time_in_range(
+      start=Artist.query.get(form.artist_id.data).available_from, 
+      end=Artist.query.get(form.artist_id.data).available_to, 
+      current=form.start_time.data.time()):
+      
+      try:
+        show = Show(
+          artist_id = form.artist_id.data,
+          venue_id = form.venue_id.data,
+          start_time = form.start_time.data,
+        )
+        db.session.add(show)
+        db.session.commit()
+      
+      except Exception as e:
+        error = True
+        db.session.rollback()
+        print(e)
+      
+      finally:
+        db.session.close()
 
-    show = Show(
-      artist_id = form.artist_id.data,
-      venue_id = form.venue_id.data,
-      start_time = form.start_time.data,
-    )
-    db.session.add(show)
-    db.session.commit()
-  
+    else:
+      flash(f'Show start time outside of artist {form.artist_id.data} availability')
+      abort(500)
+
   except Exception as e:
     error = True
     db.session.rollback()
     print(e)
-  
-  finally:
-    db.session.close()
-  
   if not error:
     flash('Show was successfully listed!')
     return redirect(url_for('shows'))
   
   else:
     flash('An error occurred. Show could not be listed.')
-    abort(500)
+    abort(500)  
 
 @app.errorhandler(404)
 def not_found_error(error):

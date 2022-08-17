@@ -1,6 +1,6 @@
 from datetime import datetime
 from flask_wtf import FlaskForm 
-from wtforms import StringField, SelectField, SelectMultipleField, DateTimeField, BooleanField
+from wtforms import StringField, SelectField, SelectMultipleField, DateTimeField, BooleanField, TimeField
 from wtforms.validators import DataRequired, AnyOf, URL, Regexp
 
 class ShowForm(FlaskForm):
@@ -239,6 +239,50 @@ class ArtistForm(FlaskForm):
             'seeking_description'
      )
 
+    available_from = TimeField('available_from')
+    available_to = TimeField('available_to')
+
 class SearchForm(FlaskForm):
     search_term = StringField('search_term', [DataRequired()])
+
+class AlbumForm(FlaskForm):
+    title = StringField(
+        'title', 
+        validators=[DataRequired()],
+    )
+    year = StringField(
+        'year',
+        validators=[DataRequired(),
+        Regexp('/\d{2}\d{2}$/gm', message="Invalid year")
+        ],
+    )
+    genres = SelectMultipleField(
+        'genres', 
+        validators=[DataRequired()],
+        choices=[
+            ('Alternative', 'Alternative'),
+            ('Blues', 'Blues'),
+            ('Classical', 'Classical'),
+            ('Country', 'Country'),
+            ('Electronic', 'Electronic'),
+            ('Folk', 'Folk'),
+            ('Funk', 'Funk'),
+            ('Hip-Hop', 'Hip-Hop'),
+            ('Heavy Metal', 'Heavy Metal'),
+            ('Instrumental', 'Instrumental'),
+            ('Jazz', 'Jazz'),
+            ('Musical Theatre', 'Musical Theatre'),
+            ('Pop', 'Pop'),
+            ('Punk', 'Punk'),
+            ('R&B', 'R&B'),
+            ('Reggae', 'Reggae'),
+            ('Rock n Roll', 'Rock n Roll'),
+            ('Soul', 'Soul'),
+            ('Other', 'Other'),
+        ],
+     )
+    image_link = StringField(
+        'image_link', 
+        validators=[DataRequired(), URL(),],
+    )
 

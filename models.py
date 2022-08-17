@@ -2,7 +2,8 @@
 # Imports
 #----------------------------------------------------------------------------#
 
-import enum
+import datetime
+from email.policy import default
 from sqlalchemy.dialects import postgresql
 from app import db
 
@@ -10,26 +11,6 @@ from app import db
 #----------------------------------------------------------------------------#
 # Models.
 #----------------------------------------------------------------------------#
-class GenreEnum(enum.Enum):
-    Alternative = 'Alternative'
-    Blues = 'Blues'
-    Classical = 'Classical'
-    Country = 'Country'
-    Electronic = 'Electronic'
-    Folk = 'Folk'
-    Funk = 'Funk'
-    Hip_Hop = 'Hip-Hop'
-    Heavy_Metal = 'Heavy Metal'
-    Instrumental = 'Instrumental'
-    Jazz = 'Jazz'
-    Musical_Theatre = 'Musical Theatre'
-    Pop = 'Pop'
-    Punk = 'Punk'
-    RNB = 'R&B'
-    Reggae = 'Reggae'
-    Rock_n_Roll = 'Rock n Roll'
-    Soul = 'Soul'
-    Other = 'Other'
 
 class Venue(db.Model):
     __tablename__ = 'Venue'
@@ -49,7 +30,7 @@ class Venue(db.Model):
     shows = db.relationship('Show', backref='venue', cascade="all, delete", passive_deletes=True, lazy=True)
 
     def __repr__(self) -> str:
-       return f'Venue {self.id} {self.name}'
+       return f'{self.name}'
 
     # TODO: implement any missing fields, as a database migration using Flask-Migrate OK--#
 
@@ -67,10 +48,13 @@ class Artist(db.Model):
     seeking_venue = db.Column(db.Boolean)
     seeking_description = db.Column(db.Text)
     shows = db.relationship('Show', backref='artist', cascade="all, delete", passive_deletes=True, lazy=True)
+    albums = db.relationship('Album', backref='artist', cascade="all, delete", passive_deletes=True, lazy=True)
     website = db.Column(db.String(120))
+    available_from = db.Column(db.Time(), default=datetime.time(0, 0 ,0))
+    available_to = db.Column(db.Time(), default=datetime.time(23, 59, 59))
 
     def __repr__(self) -> str:
-       return f'{self.id} {self.name}'
+       return f'{self.name}'
 
     # TODO: implement any missing fields, as a database migration using Flask-Migrate OK--#
 
@@ -83,4 +67,15 @@ class Show(db.Model):
     start_time = db.Column(db.DateTime)
 
     def __repr__(self) -> str:
-       return f'{self.id}'    
+       return f"{self.artist_id}'s show"
+
+class Album(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200))
+    year = db.Column(db.Integer)
+    genres = db.Column(postgresql.ARRAY(db.Text))
+    image_link = db.Column(db.String(500))
+    artist_id = db.Column(db.Integer, db.ForeignKey('Artist.id', ondelete="CASCADE"), nullable=False)
+
+    def __repr__(self) -> str:
+       return f"{self.artist_id}'s album"    

@@ -1,0 +1,30 @@
+{% extends 'layouts/main.html' %}
+{% block title %}{{ album.title }} | Album{% endblock %}
+{% block content %}
+<div class="row">
+	<div class="col-sm-6">
+		<h1 class="monospace">
+			{{ album.title }}
+		</h1>
+		<p class="subtitle">
+			ARTIST: {{ album.artist }}
+		</p>
+		<br>
+		<div class="genres">
+			{% for genre in album.genres %}
+			<span class="genre">{{ genre }}</span>
+			{% endfor %}
+		</div>
+		<h3>
+			Year: {{ album.year }}
+		</h3>
+		<br>
+		<a href="/artists/{{ album.artist_id }}/albums/{{ album.id }}/edit"><button class="btn btn-primary btn-lg">Edit</button></a>
+	</div>
+	<div class="col-sm-6">
+		<img src="{{ album.image_link }}" alt="Album Image" />
+	</div>
+</div>
+
+{% endblock %}
+

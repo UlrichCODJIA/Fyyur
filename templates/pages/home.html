@@ -22,4 +22,47 @@
 		<img id="front-splash" src="{{ url_for('static',filename='img/front-splash.jpg') }}" alt="Front Photo of Musical Band" />
 	</div>
 </div>
+<br>
+<br>
+<br>
+<div class="row">
+	<div class="col-sm-6">
+		<h2>Latest Venues</h2>
+		{% if latest_objects['last_venues_count'] >= 1 %}		
+			<ul class="items">
+				{% for venue in latest_objects['last_venues'] %}
+					<li style="display: flex;">
+						<a href="/venues/{{ venue.id }}">
+							<i class="fas fa-music"></i>
+							<div class="item">
+								<h5>{{ venue.name }}</h5>
+							</div>
+						</a>
+					</li>
+				{% endfor %}
+			</ul>
+		{% else %}
+			<p class="lead">No latest Venues.</p>
+		{% endif %}		
+	</div>
+	<div class="col-sm-6">
+		<h2>Latest Artists</h2>
+		{% if latest_objects['last_artists_count'] >= 1 %}
+			<ul class="items">
+				{% for artist in latest_objects['last_artists'] %}
+				<li>
+					<a href="/artists/{{ artist.id }}">
+						<i class="fas fa-users"></i>
+						<div class="item">
+							<h5>{{ artist.name }}</h5>
+						</div>
+					</a>
+				</li>
+				{% endfor %}
+			</ul>
+		{% else %}
+			<p class="lead">No latest Artists.</p>
+		{% endif %}
+	</div>
+</div>
 {% endblock %}
