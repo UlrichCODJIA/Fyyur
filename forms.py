@@ -5,10 +5,12 @@ from wtforms.validators import DataRequired, AnyOf, URL, Regexp
 
 class ShowForm(FlaskForm):
     artist_id = StringField(
-        'artist_id'
+        'artist_id',
+        validators=[DataRequired()],
     )   
     venue_id = StringField(
-        'venue_id'
+        'venue_id',
+        validators=[DataRequired()],
     )
     start_time = DateTimeField(
         'start_time',
@@ -18,13 +20,16 @@ class ShowForm(FlaskForm):
 
 class VenueForm(FlaskForm):
     name = StringField(
-        'name', validators=[DataRequired()]
+        'name', 
+        validators=[DataRequired()]
     )
     city = StringField(
-        'city', validators=[DataRequired()]
+        'city', 
+        validators=[DataRequired()]
     )
     state = SelectField(
-        'state', validators=[DataRequired()],
+        'state', 
+        validators=[DataRequired()],
         choices=[
             ('AL', 'AL'),
             ('AK', 'AK'),
@@ -80,17 +85,30 @@ class VenueForm(FlaskForm):
         ]
     )
     address = StringField(
-        'address', validators=[DataRequired()]
+        'address', 
+        validators=[DataRequired()],
     )
     phone = StringField(
-        'phone', validators=[Regexp('^\d{10}$', message="Phone number must be entered in the format: 'NXX-NXX-XXXX'. Up to 15 digits allowed."),]
+        'phone', 
+        validators=[
+            DataRequired(),
+            Regexp(
+                '^[0-9]{3}-[0-9]{3}-[0-9]{4}$', 
+                message="Invalid phone number. Must be xxx-xxx-xxxx"
+            ),
+        ]
     )
     image_link = StringField(
-        'image_link'
+        'image_link',
+        validators=[
+            DataRequired(),
+            URL(),
+        ]
     )
     genres = SelectMultipleField(
         # TODO: implement enum restriction OK----------------------------#
-        'genres', validators=[DataRequired()],
+        'genres', 
+        validators=[DataRequired()],
         choices=[
             ('Alternative', 'Alternative'),
             ('Blues', 'Blues'),
@@ -114,11 +132,22 @@ class VenueForm(FlaskForm):
         ]
     )
     facebook_link = StringField(
-        'facebook_link', validators=[URL(), 
-        Regexp('(?:https:\/\/)?(?:www\.)?facebook\.com\/.(?:(?:\w)*#!\/)?(?:pages\/)?(?:[\w\-]*\/)*([\w\-\.]*)', message="Invalid facebook link")]
+        'facebook_link', 
+        validators=[
+            URL(),
+            DataRequired(),
+            Regexp(
+                '(?:https:\/\/)?(?:www\.)?facebook\.com\/.(?:(?:\w)*#!\/)?(?:pages\/)?(?:[\w\-]*\/)*([\w\-\.]*)', 
+                message="Invalid facebook link"
+            ),
+        ]
      )
     website_link = StringField(
-        'website_link', validators=[URL(),]
+        'website_link', 
+        validators=[
+            URL(),
+            DataRequired(),
+        ]
     )
 
     seeking_talent = BooleanField( 'seeking_talent' )
@@ -131,13 +160,16 @@ class VenueForm(FlaskForm):
 
 class ArtistForm(FlaskForm):
     name = StringField(
-        'name', validators=[DataRequired()]
+        'name', 
+        validators=[DataRequired()]
     )
     city = StringField(
-        'city', validators=[DataRequired()]
+        'city', 
+        validators=[DataRequired()]
     )
     state = SelectField(
-        'state', validators=[DataRequired()],
+        'state', 
+        validators=[DataRequired()],
         choices=[
             ('AL', 'AL'),
             ('AK', 'AK'),
@@ -194,13 +226,25 @@ class ArtistForm(FlaskForm):
     )
     phone = StringField(
         # TODO: implement validation logic for state OK----------------------------#
-        'phone', validators=[Regexp('^\d{10}$', message="Phone number must be entered in the format: 'NXX-NXX-XXXX'. Up to 15 digits allowed."),]
+        'phone',
+        validators=[
+            DataRequired(),
+            Regexp(
+                '^[0-9]{3}-[0-9]{3}-[0-9]{4}$', 
+                message="Invalid phone number. Must be xxx-xxx-xxxx"
+            ),
+        ]
     )
     image_link = StringField(
-        'image_link'
+        'image_link',
+        validators=[
+            DataRequired(), 
+            URL()
+        ]
     )
     genres = SelectMultipleField(
-        'genres', validators=[DataRequired()],
+        'genres', 
+        validators=[DataRequired()],
         choices=[
             ('Alternative', 'Alternative'),
             ('Blues', 'Blues'),
@@ -225,12 +269,22 @@ class ArtistForm(FlaskForm):
      )
     facebook_link = StringField(
         # TODO: implement enum restriction OK--------------#
-        'facebook_link', validators=[URL(), 
-        Regexp('(?:https:\/\/)?(?:www\.)?facebook\.com\/.(?:(?:\w)*#!\/)?(?:pages\/)?(?:[\w\-]*\/)*([\w\-\.]*)', message="Invalid facebook link")]
+        'facebook_link', 
+        validators=[
+            URL(), 
+            Regexp(
+                '(?:https:\/\/)?(?:www\.)?facebook\.com\/.(?:(?:\w)*#!\/)?(?:pages\/)?(?:[\w\-]*\/)*([\w\-\.]*)', 
+                message="Invalid facebook link"
+            ),
+        ],
      )
 
     website_link = StringField(
-        'website_link', validators=[URL(),]
+        'website_link', 
+        validators=[
+            URL(),
+            DataRequired(),
+        ]
      )
 
     seeking_venue = BooleanField( 'seeking_venue' )
@@ -239,8 +293,12 @@ class ArtistForm(FlaskForm):
             'seeking_description'
      )
 
-    available_from = TimeField('available_from')
-    available_to = TimeField('available_to')
+    available_from = TimeField(
+        'available_from',
+    )
+    available_to = TimeField(
+        'available_to',
+    )
 
 class SearchForm(FlaskForm):
     search_term = StringField('search_term', [DataRequired()])
@@ -252,8 +310,12 @@ class AlbumForm(FlaskForm):
     )
     year = StringField(
         'year',
-        validators=[DataRequired(),
-        Regexp('/\d{2}\d{2}$/gm', message="Invalid year")
+        validators=[
+            DataRequired(),
+            Regexp(
+                '/\d{2}\d{2}$/gm', 
+                message="Invalid year"
+            ),
         ],
     )
     genres = SelectMultipleField(
@@ -283,6 +345,9 @@ class AlbumForm(FlaskForm):
      )
     image_link = StringField(
         'image_link', 
-        validators=[DataRequired(), URL(),],
+        validators=[
+            DataRequired(), 
+            URL(),
+        ],
     )
 

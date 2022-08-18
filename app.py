@@ -125,21 +125,45 @@ def search_venues():
   # search for "Music" should return "The Musical Hop" and "Park Square Live Music & Coffee"
   error = False
   Form = SearchForm()
+  search = Form.search_term.data
 
   try:
     venues = Venue.query.filter(
-      Venue.name.like('%' + Form.search_term.data + '%')
-    ).order_by(Venue.id)
+      Venue.name.like('%' + search + '%')
+    )
+
+    artists = Artist.query.filter(
+      Artist.name.like('%' + search + '%')
+    )  
 
     response = {
-      "count": venues.count(),
-      "data": [{
-        "id": venue.id,
-        "name": venue.name,
-        "num_upcoming_shows": Show.query.filter(
-          db.and_(Show.start_time > datetime.datetime.now(), Show.venue_id == venue.id)
-        ).count()
-      } for venue in venues] 
+      'venues': {
+        'count': venues.count(),
+        'data': [{
+          'id': venue.id,
+          'name': venue.name,
+          'num_upcoming_shows': len([
+            upcoming_show 
+            for upcoming_show 
+            in Show.query.join(Venue).filter(
+              db.and_(Show.start_time > datetime.datetime.now(), Show.venue_id == venue.id)
+              )
+            ])
+        } for venue in venues] 
+      },
+      'artists': {
+        "count": artists.count(),
+        "data": [{
+          "id": artist.id,
+          "name": artist.name,
+          "num_upcoming_shows": len([
+            upcoming_shows 
+            for upcoming_shows 
+            in Show.query.join(Artist).filter(
+              db.and_(Show.start_time <= datetime.datetime.now(), Show.artist_id == artist.id))
+            ])
+        } for artist in artists] 
+      },
     }
 
   except Exception as e:
@@ -163,6 +187,12 @@ def show_venue(venue_id):
 
   try:
     venue=Venue.query.get(venue_id)
+    past_shows_query = Show.query.join(Venue).filter(
+      db.and_(Show.start_time <= datetime.datetime.now(), Show.venue_id == venue_id))
+    past_shows = [past_shows for past_shows in past_shows_query]
+    upcoming_shows_query = Show.query.join(Venue).filter(
+      db.and_(Show.start_time > datetime.datetime.now(), Show.venue_id == venue_id))
+    upcoming_shows = [upcoming_shows for upcoming_shows in upcoming_shows_query]
 
     venue={
       "id": venue.id,
@@ -177,14 +207,10 @@ def show_venue(venue_id):
       "seeking_talent": venue.seeking_talent,
       "seeking_description": venue.seeking_description,
       "image_link": venue.image_link,
-      "past_shows": Show.query.filter(
-          db.and_(Show.start_time <= datetime.datetime.now(), Show.venue_id == venue_id)), 
-      "upcoming_shows": Show.query.filter(
-          db.and_(Show.start_time > datetime.datetime.now(), Show.venue_id == venue_id)),
-      "past_shows_count": Show.query.filter(
-          db.and_(Show.start_time <= datetime.datetime.now(), Show.venue_id == venue_id)).count(),
-      "upcoming_shows_count": Show.query.filter(
-          db.and_(Show.start_time > datetime.datetime.now(), Show.venue_id == venue_id)).count(),
+      "past_shows": past_shows, 
+      "upcoming_shows": upcoming_shows,
+      "past_shows_count": len(past_shows),
+      "upcoming_shows_count": len(upcoming_shows),
     }
 
   except Exception as e:
@@ -213,39 +239,41 @@ def create_venue_submission():
   # TODO: modify data to be the data object returned from db insertion
   error = False
   form = VenueForm()
-  try:
 
-    venue = Venue(
-      name = form.name.data,
-      city = form.city.data,
-      state = form.state.data,
-      address = form.address.data,
-      phone = form.phone.data,
-      image_link = form.image_link.data,
-      genres = form.genres.data,
-      facebook_link = form.facebook_link.data,
-      website = form.website_link.data,
-      seeking_talent = form.seeking_talent.data,
-      seeking_description = form.seeking_description.data,
-    )
-    db.session.add(venue)
-    db.session.commit()
-  
-  except:
-    error = True
-    db.session.rollback()
-    print(sys.exc_info())
-  
-  finally:
-    db.session.close()
-  
-  if not error:
-    flash('Venue ' + request.form['name'] + ' was successfully listed!')
-    return redirect(url_for('venues'))
-  
-  else:
-    flash('An error occurred. Venue ' + request.form['name'] + ' could not be listed.')
-    abort(500)
+  if form.validate_on_submit():
+    try:
+      venue = Venue(
+        name = form.name.data,
+        city = form.city.data,
+        state = form.state.data,
+        address = form.address.data,
+        phone = form.phone.data,
+        image_link = form.image_link.data,
+        genres = form.genres.data,
+        facebook_link = form.facebook_link.data,
+        website = form.website_link.data,
+        seeking_talent = form.seeking_talent.data,
+        seeking_description = form.seeking_description.data,
+      )
+      db.session.add(venue)
+      db.session.commit()
+    
+    except:
+      error = True
+      db.session.rollback()
+      print(sys.exc_info())
+    
+    finally:
+      db.session.close()
+    
+    if not error:
+      flash('Venue ' + request.form['name'] + ' was successfully listed!')
+      return redirect(url_for('venues'))
+    
+    else:
+      flash('An error occurred. Venue ' + request.form['name'] + ' could not be listed.')
+      abort(500)
+  return render_template('forms/new_venue.html', form=form)
 
 @app.route('/venues/<venue_id>', methods=['DELETE'])
 def delete_venue(venue_id):
@@ -256,7 +284,7 @@ def delete_venue(venue_id):
   # clicking that button delete it from the db then redirect the user to the homepage  
   error = False
   try:
-    Venue.query.filter_by(id=venue_id).delete()
+    Venue.query.get(venue_id).delete()
     db.session.commit()
   except Exception as e:
     error = True
@@ -306,21 +334,45 @@ def search_artists():
   # search for "band" should return "The Wild Sax Band".
   error = False
   Form = SearchForm()
+  search = Form.search_term.data
 
   try:
     artists = Artist.query.filter(
-      Artist.name.like('%' + Form.search_term.data + '%')
-    ).order_by(Artist.id)
+      Artist.name.like('%' + search + '%')
+    )
+
+    venues = Venue.query.filter(
+      Venue.name.like('%' + search + '%')
+    )    
 
     response = {
-      "count": artists.count(),
-      "data": [{
-        "id": artist.id,
-        "name": artist.name,
-        "num_upcoming_shows": Show.query.filter(
-          db.and_(Show.start_time <= datetime.datetime.now(), Show.artist_id == artist.id)
-        ).count()
-      } for artist in artists] 
+      'venues': {
+        'count': venues.count(),
+        'data': [{
+          'id': venue.id,
+          'name': venue.name,
+          'num_upcoming_shows': len([
+            upcoming_show 
+            for upcoming_show 
+            in Show.query.join(Venue).filter(
+              db.and_(Show.start_time > datetime.datetime.now(), Show.venue_id == venue.id)
+              )
+            ])
+        } for venue in venues] 
+      },
+      'artists': {
+        "count": artists.count(),
+        "data": [{
+          "id": artist.id,
+          "name": artist.name,
+          "num_upcoming_shows": len([
+            upcoming_shows 
+            for upcoming_shows 
+            in Show.query.join(Artist).filter(
+              db.and_(Show.start_time <= datetime.datetime.now(), Show.artist_id == artist.id))
+            ])
+        } for artist in artists] 
+      },
     }
 
   except Exception as e:
@@ -343,7 +395,15 @@ def show_artist(artist_id):
   Form = SearchForm()
 
   try:
-    artist=Artist.query.get(artist_id)
+    artist = Artist.query.get(artist_id)
+    albums_query = Album.query.join(Artist).filter(Album.artist_id == artist_id).order_by(Album.id)
+    albums = [album for album in albums_query]
+    past_shows_query = Show.query.join(Artist).filter(
+      db.and_(Show.start_time <= datetime.datetime.now(), Show.artist_id == artist_id)).order_by(Show.id)
+    past_shows = [past_show for past_show in past_shows_query] 
+    upcoming_shows_query = Show.query.join(Artist).filter(
+      db.and_(Show.start_time > datetime.datetime.now(), Show.artist_id == artist_id)).order_by(Show.id)
+    upcoming_shows = [upcoming_shows for upcoming_shows in upcoming_shows_query]
 
     artist={
       "id": artist.id,
@@ -359,16 +419,12 @@ def show_artist(artist_id):
       "image_link": artist.image_link,
       "available_from": artist.available_from.strftime("%H:%M"),
       "available_to": artist.available_to.strftime("%H:%M"),
-      "albums": Album.query.filter(Album.artist_id == artist_id).order_by(Album.id),
-      "albums_count": Album.query.filter(Album.artist_id == artist_id).count(),
-      "past_shows": Show.query.filter(
-          db.and_(Show.start_time <= datetime.datetime.now(), Show.artist_id == artist_id)), 
-      "upcoming_shows": Show.query.filter(
-          db.and_(Show.start_time > datetime.datetime.now(), Show.artist_id == artist_id)),
-      "past_shows_count": Show.query.filter(
-          db.and_(Show.start_time <= datetime.datetime.now(), Show.artist_id == artist_id)).count(),
-      "upcoming_shows_count": Show.query.filter(
-          db.and_(Show.start_time > datetime.datetime.now(), Show.artist_id == artist_id)).count(),
+      "albums": albums,
+      "albums_count": len(albums),
+      "past_shows": past_shows, 
+      "upcoming_shows": upcoming_shows,
+      "past_shows_count": len(past_shows),
+      "upcoming_shows_count": len(upcoming_shows),
     }
 
   except Exception as e:
@@ -412,34 +468,45 @@ def edit_artist_submission(artist_id):
   # artist record with ID <artist_id> using the new attributes
   error = False
   form = ArtistForm()
+
+  if form.validate_on_submit():  
+    try:
+      artist = Artist.query.get(artist_id)
+      artist.name = form.name.data
+      artist.city = form.city.data
+      artist.state = form.state.data
+      artist.phone = form.phone.data
+      artist.image_link = form.image_link.data
+      artist.genres = form.genres.data
+      artist.facebook_link = form.facebook_link.data
+      artist.website = form.website_link.data
+      artist.seeking_venue = form.seeking_venue.data
+      artist.seeking_description = form.seeking_description.data
+      artist.available_from = form.available_from.data
+      artist.available_to = form.available_to.data
+      db.session.commit()
+
+    except Exception as e:
+      print(e)
+      error = True
+      db.session.rollback()
+    finally:
+      db.session.close()
+
+    if not error:
+      return redirect(url_for('show_artist', artist_id=artist_id))
+    else:
+      abort(500)
+
   try:
-
-    artist = Artist.query.get(artist_id)
-
-    artist.name = form.name.data
-    artist.city = form.city.data
-    artist.state = form.state.data
-    artist.phone = form.phone.data
-    artist.image_link = form.image_link.data
-    artist.genres = form.genres.data
-    artist.facebook_link = form.facebook_link.data
-    artist.website = form.website_link.data
-    artist.seeking_venue = form.seeking_venue.data
-    artist.seeking_description = form.seeking_description.data
-    artist.available_from = form.available_from.data
-    artist.available_to = form.available_to.data
-    db.session.commit()
-
+    artist=Artist.query.get(artist_id)
   except Exception as e:
-    print(e)
     error = True
-    db.session.rollback()
+    print(e)
   finally:
     db.session.close()
-
   if not error:
-    return redirect(url_for('show_artist', artist_id=artist_id))
-  
+    return render_template('forms/edit_artist.html', form=form, artist=artist)
   else:
     abort(500)
 
@@ -469,32 +536,44 @@ def edit_venue_submission(venue_id):
   # venue record with ID <venue_id> using the new attributes
   error = False 
   form = VenueForm()
+
+  if form.validate_on_submit():  
+    try:
+      venue = Venue.query.get(venue_id)
+      venue.name = form.name.data
+      venue.city = form.city.data
+      venue.state = form.state.data
+      venue.address = form.address.data
+      venue.phone = form.phone.data
+      venue.image_link = form.image_link.data
+      venue.genres = form.genres.data
+      venue.facebook_link = form.facebook_link.data
+      venue.website = form.website_link.data
+      venue.seeking_talent = form.seeking_talent.data
+      venue.seeking_description = form.seeking_description.data
+      db.session.commit()
+
+    except Exception as e:
+      print(e)
+      error = True
+      db.session.rollback()
+    finally:
+      db.session.close()
+
+    if not error:
+      return redirect(url_for('show_venue', venue_id=venue_id))
+    else:
+      abort(500)
+
   try:
     venue = Venue.query.get(venue_id)
-
-    venue.name = form.name.data
-    venue.city = form.city.data
-    venue.state = form.state.data
-    venue.address = form.address.data
-    venue.phone = form.phone.data
-    venue.image_link = form.image_link.data
-    venue.genres = form.genres.data
-    venue.facebook_link = form.facebook_link.data
-    venue.website = form.website_link.data
-    venue.seeking_talent = form.seeking_talent.data
-    venue.seeking_description = form.seeking_description.data
-    db.session.commit()
-
   except Exception as e:
-    print(e)
     error = True
-    db.session.rollback()
+    print(e)
   finally:
     db.session.close()
-
   if not error:
-    return redirect(url_for('show_venue', venue_id=venue_id))
-  
+    return render_template('forms/edit_venue.html', form=form, venue=venue)
   else:
     abort(500)
 
@@ -504,8 +583,7 @@ def edit_album(artist_id, album_id):
   form = AlbumForm()
 
   try:
-    album=Album.query.filter(Album.artist_id == artist_id).first()
-    artist_id = artist_id
+    album=Album.query.join(Artist).filter(Album.artist_id == artist_id).first()
 
   except Exception as e:
     error = True
@@ -523,30 +601,40 @@ def edit_album(artist_id, album_id):
 def edit_album_submission(artist_id, album_id):
   error = False
   form = AlbumForm()
+
+  if form.validate_on_submit():  
+    try:
+      album=Album.query.join(Artist).filter(Album.artist_id == artist_id).first()
+      album.title = form.title.data
+      album.genres = form.genres.data
+      album.year = form.year.data
+      album.image_link = form.image_link.data
+      db.session.commit()
+
+    except Exception as e:
+      print(e)
+      error = True
+      db.session.rollback()
+    finally:
+      db.session.close()
+
+    if not error:
+      return redirect(url_for('show_artist', artist_id=artist_id))
+    
+    else:
+      abort(500)
+
   try:
-
-    album=Album.query.filter(Album.artist_id == artist_id).first()
-    print(album)
-
-    album.title = form.title.data
-    album.genres = form.genres.data
-    album.year = form.year.data
-    album.image_link = form.image_link.data
-    print(form.title.data, form.genres.data, form.year.data, form.image_link.data)
-    db.session.commit()
-
+    album=Album.query.join(Artist).filter(Album.artist_id == artist_id).first()
   except Exception as e:
-    print(e)
     error = True
-    db.session.rollback()
+    print(e)
   finally:
     db.session.close()
-
   if not error:
-    return redirect(url_for('show_artist', artist_id=artist_id))
-  
+    return render_template('forms/edit_album.html', form=form, album=album, artist_id=artist_id)
   else:
-    abort(500)    
+    abort(500)
 
 #  Create Artist
 #  ----------------------------------------------------------------
@@ -564,40 +652,41 @@ def create_artist_submission():
 
   error = False
   form = ArtistForm()
-  try:
 
-    artist = Artist(
-      name = form.name.data,
-      city = form.city.data,
-      state = form.state.data,
-      phone = form.phone.data,
-      image_link = form.image_link.data,
-      genres = form.genres.data,
-      facebook_link = form.facebook_link.data,
-      website = form.website_link.data,
-      seeking_venue = form.seeking_venue.data,
-      seeking_description = form.seeking_description.data,
-      available_from = form.available_from.data,
-      available_to = form.available_to.data,
-    )
-    db.session.add(artist)
-    db.session.commit()
-  
-  except Exception as e:
-    error = True
-    db.session.rollback()
-    print(e)
-  
-  finally:
-    db.session.close()
-  
-  if not error:
-    flash('Artist ' + request.form['name'] + ' was successfully listed!')
-    return redirect(url_for('artists'))
-  
-  else:
-    flash('An error occurred. Artist ' + request.form['name'] + ' could not be listed.')
-    abort(500)
+  if form.validate_on_submit():  
+    try:
+      artist = Artist(
+        name = form.name.data,
+        city = form.city.data,
+        state = form.state.data,
+        phone = form.phone.data,
+        image_link = form.image_link.data,
+        genres = form.genres.data,
+        facebook_link = form.facebook_link.data,
+        website = form.website_link.data,
+        seeking_venue = form.seeking_venue.data,
+        seeking_description = form.seeking_description.data,
+        available_from = form.available_from.data,
+        available_to = form.available_to.data,
+      )
+      db.session.add(artist)
+      db.session.commit()
+    
+    except Exception as e:
+      error = True
+      db.session.rollback()
+      print(e)
+    finally:
+      db.session.close()
+    
+    if not error:
+      flash('Artist ' + request.form['name'] + ' was successfully listed!')
+      return redirect(url_for('artists'))
+    else:
+      flash('An error occurred. Artist ' + request.form['name'] + ' could not be listed.')
+      abort(500)
+
+  return render_template('forms/new_artist.html', form=form)
 
 
 # Albums
@@ -612,33 +701,33 @@ def create_album_form(artist_id):
 def create_album_submission(artist_id):
   error = False
   form = AlbumForm()
-  try:
 
-    album = Album(
-      title = form.title.data,
-      year = form.year.data,
-      genres = form.genres.data,      
-      image_link = form.image_link.data,
-      artist_id = artist_id,
-    )
-    db.session.add(album)
-    db.session.commit()
-  
-  except:
-    error = True
-    db.session.rollback()
-    print(sys.exc_info())
-  
-  finally:
-    db.session.close()
-  
-  if not error:
-    flash('Album ' + request.form['title'] + ' was successfully listed!')
-    return redirect(url_for('show_artist', artist_id=artist_id))
-  
-  else:
-    flash('An error occurred. Album ' + request.form['title'] + ' could not be listed.')
-    abort(500)
+  if form.validate_on_submit():  
+    try:
+      album = Album(
+        title = form.title.data,
+        year = form.year.data,
+        genres = form.genres.data,      
+        image_link = form.image_link.data,
+        artist_id = artist_id,
+      )
+      db.session.add(album)
+      db.session.commit()
+    except:
+      error = True
+      db.session.rollback()
+      print(sys.exc_info())
+    finally:
+      db.session.close()
+    
+    if not error:
+      flash('Album ' + request.form['title'] + ' was successfully listed!')
+      return redirect(url_for('show_artist', artist_id=artist_id))
+    else:
+      flash('An error occurred. Album ' + request.form['title'] + ' could not be listed.')
+      abort(500)
+
+  return render_template('forms/new_album.html', form=form)      
 
 
 @app.route('/artists/<int:artist_id>/albums/<int:album_id>')
@@ -647,7 +736,7 @@ def show_album(artist_id, album_id):
   Form = SearchForm()
 
   try:
-    album=Album.query.filter(Album.artist_id == artist_id).first()
+    album=Album.query.join(Artist).filter(Album.artist_id == artist_id).first()
 
     album={
       "id": album.id,
@@ -715,44 +804,108 @@ def create_show_submission():
   # TODO: insert form data as a new Show record in the db, instead  
   error = False
   form = ShowForm()
-  try:
-    if time_in_range(
-      start=Artist.query.get(form.artist_id.data).available_from, 
-      end=Artist.query.get(form.artist_id.data).available_to, 
-      current=form.start_time.data.time()):
-      
-      try:
-        show = Show(
-          artist_id = form.artist_id.data,
-          venue_id = form.venue_id.data,
-          start_time = form.start_time.data,
-        )
-        db.session.add(show)
-        db.session.commit()
-      
-      except Exception as e:
-        error = True
-        db.session.rollback()
-        print(e)
-      
-      finally:
-        db.session.close()
 
-    else:
-      flash(f'Show start time outside of artist {form.artist_id.data} availability')
+  if form.validate_on_submit():
+
+    try:
+      current_artist = Artist.query.get(form.artist_id.data)
+      current_venue = Venue.query.get(form.venue_id.data)
+    except Exception as e:
+      error = True
+      db.session.rollback()
+      print(e)
+    finally:
+      db.session.close()
+    if error:
+      flash('An error occurred. Show could not be listed.')
       abort(500)
 
-  except Exception as e:
-    error = True
-    db.session.rollback()
-    print(e)
-  if not error:
-    flash('Show was successfully listed!')
-    return redirect(url_for('shows'))
+    if current_artist:
+      if current_artist.available_from and current_artist.available_to:
+        if time_in_range(
+          start=current_artist.available_from, 
+          end=current_artist.available_to, 
+          current=form.start_time.data.time()):
+          
+          if current_venue:
+            try:
+              show = Show(
+                artist_id = form.artist_id.data,
+                venue_id = form.venue_id.data,
+                start_time = form.start_time.data,
+              )
+              db.session.add(show)
+              db.session.commit()
+            except Exception as e:
+              error = True
+              db.session.rollback()
+              print(e)
+            finally:
+              db.session.close()
+          else:
+            return render_template(
+              'forms/new_show.html', 
+              form=form, 
+              venue_error = f'No venue matching ID {form.venue_id.data}'
+            )
+
+        else:
+          try:
+            artist=Artist.query.get(form.artist_id.data)
+          except Exception as e:
+            error = True
+            db.session.rollback()
+            print(e)
+          finally:
+            db.session.close()
+
+          if not error:
+            return render_template(
+              'forms/new_show.html', 
+              form=form, 
+              availability_error = f'Artist {form.artist_id.data} only available between {artist.available_from.strftime("%H:%M")} and {artist.available_to.strftime("%H:%M")}'
+            )
+          else:
+            abort(500)
+
+      else :
+        if current_venue:
+          try:
+            show = Show(
+              artist_id = form.artist_id.data,
+              venue_id = form.venue_id.data,
+              start_time = form.start_time.data,
+            )
+            db.session.add(show)
+            db.session.commit()
+          except Exception as e:
+            error = True
+            db.session.rollback()
+            print(e)
+          finally:
+            db.session.close()
+        else:
+          return render_template(
+            'forms/new_show.html', 
+            form=form, 
+            venue_error = f'No venue matching ID {form.venue_id.data}'
+          )
+
+    else:
+      return render_template(
+        'forms/new_show.html', 
+        form=form, 
+        artist_error = f'No artist matching ID {form.artist_id.data}'
+      )
+
+    if not error:
+      flash('Show was successfully listed!')
+      return redirect(url_for('shows'))
+    else:
+      flash('An error occurred. Show could not be listed.')
+      abort(500) 
   
-  else:
-    flash('An error occurred. Show could not be listed.')
-    abort(500)  
+  return render_template('forms/new_show.html', form=form)
 
 @app.errorhandler(404)
 def not_found_error(error):
