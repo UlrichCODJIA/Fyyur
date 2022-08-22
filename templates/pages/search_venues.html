@@ -22,7 +22,7 @@
 	{% if results.artists.data %} <h3> Artists </h3> {% else %} {% endif %}
 	{% for artist in results.artists.data %}
 	<li>
-		<a href="/artist/{{ artist.id }}">
+		<a href="/artists/{{ artist.id }}">
 			<i class="fas fa-music"></i>
 			<div class="item">
 				<h5>{{ artist.name }}</h5>
